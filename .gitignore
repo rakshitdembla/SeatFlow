@@ -38,3 +38,6 @@ src/main/resources/application-prod.yml
 
 ### Env ###
 .env
+
+### Learnings (personal study notes, not part of the project) ###
+learnings/
