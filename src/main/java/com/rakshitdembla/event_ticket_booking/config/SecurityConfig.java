@@ -26,6 +26,7 @@ public class SecurityConfig {
     private static final String[] PUBLIC_ENDPOINTS = {
             "/api/auth/register",
             "/api/auth/verify-email",
+            "/api/auth/resend-otp",
             "/api/auth/login",
             "/api/auth/refresh-token",
             "/api/auth/forgot-password",

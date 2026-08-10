@@ -4,10 +4,12 @@ import com.rakshitdembla.event_ticket_booking.dto.request.ForgotPasswordRequest;
 import com.rakshitdembla.event_ticket_booking.dto.request.LoginRequest;
 import com.rakshitdembla.event_ticket_booking.dto.request.RefreshTokenRequest;
 import com.rakshitdembla.event_ticket_booking.dto.request.RegisterRequest;
+import com.rakshitdembla.event_ticket_booking.dto.request.ResendOtpRequest;
 import com.rakshitdembla.event_ticket_booking.dto.request.ResetPasswordRequest;
 import com.rakshitdembla.event_ticket_booking.dto.request.VerifyEmailRequest;
 import com.rakshitdembla.event_ticket_booking.dto.response.ApiMessageResponse;
 import com.rakshitdembla.event_ticket_booking.dto.response.AuthResponse;
+import com.rakshitdembla.event_ticket_booking.dto.response.RegisterResponse;
 import com.rakshitdembla.event_ticket_booking.security.UserPrincipal;
 import com.rakshitdembla.event_ticket_booking.service.AuthService;
 import jakarta.validation.Valid;
@@ -28,13 +30,20 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiMessageResponse> register(@Valid @RequestBody RegisterRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
+    public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
+        RegisterResponse response = authService.register(request);
+        HttpStatus status = response.isNewAccount() ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(status).body(response);
     }
 
     @PostMapping("/verify-email")
     public ResponseEntity<ApiMessageResponse> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
         return ResponseEntity.ok(authService.verifyEmail(request));
+    }
+
+    @PostMapping("/resend-otp")
+    public ResponseEntity<ApiMessageResponse> resendOtp(@Valid @RequestBody ResendOtpRequest request) {
+        return ResponseEntity.ok(authService.resendOtp(request));
     }
 
     @PostMapping("/login")

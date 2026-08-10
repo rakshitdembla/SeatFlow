@@ -4,15 +4,18 @@ import com.rakshitdembla.event_ticket_booking.dto.request.ForgotPasswordRequest;
 import com.rakshitdembla.event_ticket_booking.dto.request.LoginRequest;
 import com.rakshitdembla.event_ticket_booking.dto.request.RefreshTokenRequest;
 import com.rakshitdembla.event_ticket_booking.dto.request.RegisterRequest;
+import com.rakshitdembla.event_ticket_booking.dto.request.ResendOtpRequest;
 import com.rakshitdembla.event_ticket_booking.dto.request.ResetPasswordRequest;
 import com.rakshitdembla.event_ticket_booking.dto.request.VerifyEmailRequest;
 import com.rakshitdembla.event_ticket_booking.dto.response.ApiMessageResponse;
 import com.rakshitdembla.event_ticket_booking.dto.response.AuthResponse;
+import com.rakshitdembla.event_ticket_booking.dto.response.RegisterResponse;
 import com.rakshitdembla.event_ticket_booking.entity.RefreshToken;
 import com.rakshitdembla.event_ticket_booking.entity.User;
 import com.rakshitdembla.event_ticket_booking.enums.OtpPurpose;
 import com.rakshitdembla.event_ticket_booking.enums.UserRole;
 import com.rakshitdembla.event_ticket_booking.enums.UserStatus;
+import com.rakshitdembla.event_ticket_booking.exception.AccountAlreadyVerifiedException;
 import com.rakshitdembla.event_ticket_booking.exception.EmailAlreadyExistsException;
 import com.rakshitdembla.event_ticket_booking.exception.EmailNotVerifiedException;
 import com.rakshitdembla.event_ticket_booking.exception.InvalidRefreshTokenException;
@@ -56,9 +59,22 @@ public class AuthService {
     private long refreshTokenExpirationMs;
 
     @Transactional
-    public ApiMessageResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new EmailAlreadyExistsException("An account with this email already exists.");
+    public RegisterResponse register(RegisterRequest request) {
+        User existingUser = userRepository.findByEmail(request.getEmail()).orElse(null);
+
+        if (existingUser != null) {
+            if (existingUser.isEmailVerified()) {
+                throw new EmailAlreadyExistsException("An account with this email already exists.");
+            }
+
+            otpService.enforceResendCooldown(OtpPurpose.EMAIL_VERIFICATION, existingUser.getEmail());
+            String otp = otpService.generateAndStoreOtp(OtpPurpose.EMAIL_VERIFICATION, existingUser.getEmail());
+            emailService.sendOtpEmail(existingUser.getEmail(), otp, "Verify your SeatFlow account");
+
+            return RegisterResponse.builder()
+                    .message("This email is already registered but not verified. We've sent a new verification code.")
+                    .newAccount(false)
+                    .build();
         }
 
         User user = User.builder()
@@ -75,7 +91,26 @@ public class AuthService {
         String otp = otpService.generateAndStoreOtp(OtpPurpose.EMAIL_VERIFICATION, user.getEmail());
         emailService.sendOtpEmail(user.getEmail(), otp, "Verify your SeatFlow account");
 
-        return new ApiMessageResponse("Registration successful. Please check your email for the verification code.");
+        return RegisterResponse.builder()
+                .message("Registration successful. Please check your email for the verification code.")
+                .newAccount(true)
+                .build();
+    }
+
+    @Transactional
+    public ApiMessageResponse resendOtp(ResendOtpRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+
+        if (user.isEmailVerified()) {
+            throw new AccountAlreadyVerifiedException("This account is already verified. Please log in.");
+        }
+
+        otpService.enforceResendCooldown(OtpPurpose.EMAIL_VERIFICATION, user.getEmail());
+        String otp = otpService.generateAndStoreOtp(OtpPurpose.EMAIL_VERIFICATION, user.getEmail());
+        emailService.sendOtpEmail(user.getEmail(), otp, "Your new SeatFlow verification code");
+
+        return new ApiMessageResponse("A new verification code has been sent to your email.");
     }
 
     @Transactional
