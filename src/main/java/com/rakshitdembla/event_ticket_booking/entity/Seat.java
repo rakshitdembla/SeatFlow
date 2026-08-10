@@ -54,4 +54,8 @@ public class Seat {
     private User lockedBy;
 
     private LocalDateTime lockedUntil;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "booking_id")
+    private Booking booking;
 }
