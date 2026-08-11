@@ -22,5 +22,7 @@ public class BookingResponse {
     private PaymentStatus paymentStatus;
     private LocalDateTime bookedAt;
     private LocalDateTime seatLockExpiresAt;
+    private String razorpayOrderId;
+    private String razorpayKeyId;
     private List<BookedSeatResponse> seats;
 }

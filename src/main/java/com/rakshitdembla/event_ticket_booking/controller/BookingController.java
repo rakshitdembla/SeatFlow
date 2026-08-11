@@ -2,6 +2,7 @@ package com.rakshitdembla.event_ticket_booking.controller;
 
 import com.rakshitdembla.event_ticket_booking.dto.request.CreateBookingRequest;
 import com.rakshitdembla.event_ticket_booking.dto.response.BookingResponse;
+import com.rakshitdembla.event_ticket_booking.dto.response.TicketResponse;
 import com.rakshitdembla.event_ticket_booking.security.UserPrincipal;
 import com.rakshitdembla.event_ticket_booking.service.BookingService;
 import jakarta.validation.Valid;
@@ -19,6 +20,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/bookings")
@@ -45,5 +48,11 @@ public class BookingController {
     public ResponseEntity<BookingResponse> getOwnBookingDetail(@PathVariable Long bookingId,
                                                                  @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(bookingService.getOwnBooking(bookingId, principal.getId()));
+    }
+
+    @GetMapping("/{bookingId}/tickets")
+    public ResponseEntity<List<TicketResponse>> getOwnBookingTickets(@PathVariable Long bookingId,
+                                                                       @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(bookingService.getOwnBookingTickets(bookingId, principal.getId()));
     }
 }

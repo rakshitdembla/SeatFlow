@@ -2,6 +2,7 @@ package com.rakshitdembla.event_ticket_booking.service;
 
 import com.rakshitdembla.event_ticket_booking.dto.request.CreateBookingRequest;
 import com.rakshitdembla.event_ticket_booking.dto.response.BookingResponse;
+import com.rakshitdembla.event_ticket_booking.dto.response.TicketResponse;
 import com.rakshitdembla.event_ticket_booking.entity.Booking;
 import com.rakshitdembla.event_ticket_booking.entity.Event;
 import com.rakshitdembla.event_ticket_booking.entity.Payment;
@@ -16,10 +17,12 @@ import com.rakshitdembla.event_ticket_booking.exception.ResourceNotFoundExceptio
 import com.rakshitdembla.event_ticket_booking.exception.SeatAlreadyBookedException;
 import com.rakshitdembla.event_ticket_booking.exception.SeatLockedException;
 import com.rakshitdembla.event_ticket_booking.mapper.BookingMapper;
+import com.rakshitdembla.event_ticket_booking.mapper.TicketMapper;
 import com.rakshitdembla.event_ticket_booking.repository.BookingRepository;
 import com.rakshitdembla.event_ticket_booking.repository.EventRepository;
 import com.rakshitdembla.event_ticket_booking.repository.PaymentRepository;
 import com.rakshitdembla.event_ticket_booking.repository.SeatRepository;
+import com.rakshitdembla.event_ticket_booking.repository.TicketRepository;
 import com.rakshitdembla.event_ticket_booking.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -47,7 +50,10 @@ public class BookingService {
     private final SeatRepository seatRepository;
     private final EventRepository eventRepository;
     private final UserRepository userRepository;
+    private final TicketRepository ticketRepository;
     private final BookingMapper bookingMapper;
+    private final TicketMapper ticketMapper;
+    private final RazorpayService razorpayService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
@@ -103,9 +109,12 @@ public class BookingService {
                 .amount(totalAmount)
                 .status(PaymentStatus.PENDING)
                 .build();
+
+        String razorpayOrderId = razorpayService.createOrder(totalAmount, booking.getBookingReference());
+        payment.setRazorpayOrderId(razorpayOrderId);
         paymentRepository.save(payment);
 
-        return bookingMapper.toResponse(booking, seats, payment.getStatus());
+        return bookingMapper.toResponse(booking, seats, payment);
     }
 
     @Transactional(readOnly = true)
@@ -114,7 +123,7 @@ public class BookingService {
                 .map(booking -> bookingMapper.toResponse(
                         booking,
                         seatRepository.findByBookingIdOrderBySeatNumberAsc(booking.getId()),
-                        paymentRepository.findByBookingId(booking.getId()).map(Payment::getStatus).orElse(null)));
+                        paymentRepository.findByBookingId(booking.getId()).orElse(null)));
     }
 
     @Transactional(readOnly = true)
@@ -127,9 +136,23 @@ public class BookingService {
         }
 
         List<Seat> seats = seatRepository.findByBookingIdOrderBySeatNumberAsc(bookingId);
-        PaymentStatus paymentStatus = paymentRepository.findByBookingId(bookingId).map(Payment::getStatus).orElse(null);
+        Payment payment = paymentRepository.findByBookingId(bookingId).orElse(null);
 
-        return bookingMapper.toResponse(booking, seats, paymentStatus);
+        return bookingMapper.toResponse(booking, seats, payment);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TicketResponse> getOwnBookingTickets(Long bookingId, Long userId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found."));
+
+        if (!booking.getUser().getId().equals(userId)) {
+            throw new ResourceNotFoundException("Booking not found.");
+        }
+
+        return ticketRepository.findByBookingIdOrderByIdAsc(bookingId).stream()
+                .map(ticketMapper::toResponse)
+                .toList();
     }
 
     private void validateBookingWindow(Event event) {
