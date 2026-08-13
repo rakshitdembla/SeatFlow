@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface SeatRepository extends JpaRepository<Seat, Long> {
@@ -15,6 +16,8 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
     List<Seat> findByEventIdOrderBySeatNumberAsc(Long eventId);
 
     List<Seat> findByBookingIdOrderBySeatNumberAsc(Long bookingId);
+
+    List<Seat> findByStatusAndLockedUntilBefore(SeatStatus status, LocalDateTime time);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM Seat s WHERE s.id IN :seatIds ORDER BY s.id")
